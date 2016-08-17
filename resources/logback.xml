@@ -1,0 +1,61 @@
+<configuration>
+  <appender name="stash"
+            class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>info</level>
+    </filter>
+    <file>log/aufi-${HOSTNAME}.json</file>
+    <rollingPolicy
+        class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>log/aufi-${HOSTNAME}.json.%d{yyyy-MM-dd}</fileNamePattern>
+      <maxHistory>1</maxHistory>
+    </rollingPolicy>
+
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <providers>
+        <timestamp/>
+        <version/>
+        <message/>
+        <loggerName/>
+        <threadName/>
+        <logLevel/>
+        <logLevelValue/>
+        <stackTrace/>
+        <pattern>
+          <pattern>
+            {
+              "type": "aufi",
+              "build-id": "${BUILD_ID}",
+              "l:content-length": "#asLong{%mdc{content-length}}",
+              "d:download-pool-capacity": "#asDouble{%mdc{download-pool-capacity}}",
+              "d:upload-pool-capacity": "#asDouble{%mdc{upload-pool-capacity}}",
+              "d:execution-time": "#asDouble{%mdc{execution-time}}"
+            }
+          </pattern>
+        </pattern>
+        <mdc>
+          <excludeMdcKeyName>execution-time</excludeMdcKeyName>
+          <excludeMdcKeyName>download-pool-capacity</excludeMdcKeyName>
+          <excludeMdcKeyName>upload-pool-capacity</excludeMdcKeyName>
+          <excludeMdcKeyName>content-length</excludeMdcKeyName>
+        </mdc>
+      </providers>
+    </encoder>
+  </appender>
+
+  <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>info</level>
+    </filter>
+    <encoder>
+      <pattern>
+        %d{dd.MM.yyyy HH:mm:ss.SSS} [${HOSTNAME}] [%logger{36}] %-5level - %msg%n
+      </pattern>
+    </encoder>
+  </appender>
+
+  <root level="debug">
+    <appender-ref ref="stdout"/>
+    <appender-ref ref="stash"/>
+  </root>
+</configuration>
