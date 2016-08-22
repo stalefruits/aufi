@@ -84,8 +84,8 @@
   [& [put-lock retrieve-lock]]
   (make-aufi
     {:image-store (test/make-locking-image-store
-                    (or put-lock (test/make-lock))
-                    (or retrieve-lock (test/make-lock)))
+                    (or put-lock (test/lock))
+                    (or retrieve-lock (test/lock)))
      :config {:httpd httpd-opts}}))
 
 ;; ## Tests
@@ -178,11 +178,6 @@
 
 ;; ## Saturation Tests
 
-(defn- lock!
-  []
-  (doto (test/make-lock)
-    (.lock)))
-
 (defn- bombard!
   [n statuses request-fn]
   (doall
@@ -192,9 +187,14 @@
              (:status)
              (swap! statuses conj))))))
 
-(defn- unlock!
+(defn- wait-for-congestion!
+  [lock]
+  (is (test/wait-for-congestion! lock 2)
+      "failed to use up all server threads within 2s."))
+
+(defn- wait!
   [lock bombardment]
-  (.unlock lock)
+  (test/release! lock)
   (doseq [fut bombardment]
     @fut)
   true)
@@ -207,23 +207,23 @@
         expected-failures (- bombard-count max-requests)
         statuses (atom [])
         bombardment (bombard! bombard-count statuses saturate-fn)]
-    (Thread/sleep 100)
-    (is (= unsaturate-success-status (:status (unsaturate-fn))))
-    (is (unlock! lock bombardment))
-    (let [fq (frequencies @statuses)]
-      (is (= max-requests (get fq saturate-success-status)))
-      (is (= expected-failures (get fq 503))))))
+    (when (wait-for-congestion! lock)
+      (is (= unsaturate-success-status (:status (unsaturate-fn))))
+      (is (wait! lock bombardment))
+      (let [fq (frequencies @statuses)]
+        (is (= max-requests (get fq saturate-success-status)))
+        (is (= expected-failures (get fq 503)))))))
 
 (deftest t-saturation
   (testing "POST saturation does not influence GET requests."
-    (let [lock (lock!)]
-      (with-start [aufi (locking-test-system lock)]
+    (let [lock (test/lock! threads)]
+      (with-start [aufi (locking-test-system lock nil)]
         (test-saturation!
           test-post! 201
           test-get!  404
           lock))))
   (testing "GET saturation does not influence POST requests."
-    (let [lock (lock!)]
+    (let [lock (test/lock! threads)]
       (with-start [aufi (locking-test-system nil lock)]
         (test-saturation!
           test-get!  404
@@ -237,22 +237,22 @@
                           "&upload-capacity=" %)
                      (get! "/_status")
                      :status)
-        put-lock (lock!)
-        retrieve-lock (lock!)]
+        put-lock (test/lock! threads)
+        retrieve-lock (test/lock! threads)]
     (testing "health check based on thresholds."
       (with-start [aufi (locking-test-system put-lock retrieve-lock)]
         (is (= 200 (check! 0.5)))
         (testing "GET saturation."
           (let [bombardment (bombard!  max-requests (atom []) test-get!)]
-            (Thread/sleep 100)
-            (is (= 503 (check! 0.5)))
-            (is (= 200 (check! 0.0)))
-            (unlock! retrieve-lock bombardment)
-            (is (= 200 (check! 0.5)))))
+            (when (wait-for-congestion! retrieve-lock)
+              (is (= 503 (check! 0.5)))
+              (is (= 200 (check! 0.0)))
+              (wait! retrieve-lock bombardment)
+              (is (= 200 (check! 0.5))))))
         (testing "POST saturation."
           (let [bombardment (bombard!  max-requests (atom []) test-post!)]
-            (Thread/sleep 100)
-            (is (= 503 (check! 0.5)))
-            (is (= 200 (check! 0.0)))
-            (unlock! put-lock bombardment)
-            (is (= 200 (check! 0.5)))))))))
+            (when (wait-for-congestion! put-lock)
+              (is (= 503 (check! 0.5)))
+              (is (= 200 (check! 0.0)))
+              (wait! put-lock bombardment)
+              (is (= 200 (check! 0.5))))))))))

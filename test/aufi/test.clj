@@ -4,6 +4,7 @@
             [clojure.java.io :as io])
   (:import [java.awt.image BufferedImage]
            [java.io ByteArrayOutputStream]
+           [java.util.concurrent CountDownLatch TimeUnit]
            [java.util.concurrent.locks Lock ReentrantLock]))
 
 ;; ## Image Helpers
@@ -66,29 +67,51 @@
       (swap! log-atom (fnil conj []) [:resize type width height])
       image)))
 
+;; ## Lock Helpers
+
+(defn lock
+  []
+  {:lock (ReentrantLock.)
+   :countdown-latch (CountDownLatch. 0)})
+
+(defn lock!
+  [threads]
+  {:lock
+   (doto (ReentrantLock.)
+     (.lock))
+   :countdown-latch
+   (CountDownLatch. threads)})
+
+(defn acquire!
+  [{:keys [countdown-latch lock]}]
+  (.countDown ^CountDownLatch countdown-latch)
+  (.lock ^Lock lock))
+
+(defn release!
+  [{:keys [lock]}]
+  (.unlock ^Lock lock))
+(defn wait-for-congestion!
+  [{:keys [countdown-latch]} seconds]
+  (.await countdown-latch seconds TimeUnit/SECONDS))
+
 ;; ## Locking Image Store
 
-(defrecord LockingImageStore [^Lock put-lock ^Lock retrieve-lock internal-store]
+(defrecord LockingImageStore [put-lock retrieve-lock internal-store]
   protocols/ImageStore
   (check-health! [_]
     true)
   (put-image! [_ data]
-    (.lock put-lock)
+    (acquire! put-lock)
     (try
       (protocols/put-image! internal-store data)
       (finally
-        (.unlock put-lock))))
+        (release! put-lock))))
   (retrieve-image! [_ id]
-    (.lock retrieve-lock)
+    (acquire! retrieve-lock)
     (try
       (protocols/retrieve-image! internal-store id)
       (finally
-        (.unlock retrieve-lock)))))
-
-(defn make-lock
-  ^java.util.concurrent.locks.ReentrantLock
-  []
-  (ReentrantLock.))
+        (release! retrieve-lock)))))
 
 (defn make-locking-image-store
   [put-lock retrieve-lock]
