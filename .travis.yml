@@ -1,0 +1,6 @@
+language: clojure
+script: lein2 silent test
+jdk:
+  - openjdk7
+  - oraclejdk7
+  - oraclejdk8
