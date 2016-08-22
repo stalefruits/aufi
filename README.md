@@ -95,26 +95,26 @@ They can be combined to achieve the following results:
 <table style='text-align: center'>
   <tr>
     <td/>
-    <td>`max-height`</td>
-    <td>`height`</td>
+    <td><code>max-height</code></td>
+    <td><code>height</code></td>
     <td>none</td>
   </tr>
   <tr>
-    <td>`max-width`</td>
+    <td><code>max-width</code></td>
     <td>scale into width/height bounds</td>
     <td>⚡</td>
-    <td>scale _down_ to maximum width</td>
+    <td>scale <em>down</em> to maximum width</td>
   </tr>
   <tr>
-    <td>`width`</td>
+    <td><code>width</code></td>
     <td>⚡</td>
     <td>crop centrally to exact dimensions</td>
-    <td>scale _exactly_ to given width</td>
+    <td>scale <em>exactly</em> to given width</td>
   </tr>
   <tr>
     <td>none</td>
-    <td>scale _down_ to maximum height</td>
-    <td>scale _exactly_ to given height</td>
+    <td>scale <em>down</em> to maximum height</td>
+    <td>scale <em>exactly</em> to given height</td>
     <td>original image</td>
   </tr>
 </table>
