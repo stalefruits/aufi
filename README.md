@@ -1,4 +1,4 @@
-# aufi
+# aufi [![Build Status](https://travis-ci.org/stylefruits/aufi.svg?branch=master)](https://travis-ci.org/stylefruits/aufi)
 
 __aufi__ is a service for image upload, retrieval and resizing.
 

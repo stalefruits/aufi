@@ -4,7 +4,7 @@
             [peripheral.core :refer [with-start]])
   (:import [java.io File]))
 
-(deftest t-config
+(deftest ^:with-aws-credentials t-config
   (let [f (File/createTempFile "config" ".edn")]
     (try
       (testing "complete configuration."

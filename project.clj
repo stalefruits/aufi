@@ -46,4 +46,6 @@
                    ^:replace
                    ["-Djava.awt.headless=true"
                     "-Dlogback.configurationFile=resources/logback-dev.xml"]}}
-  :aliases {"silent" ["with-profile" "+silent"]})
+  :aliases {"silent" ["with-profile" "+silent"]}
+  :test-selectors {:default (complement :with-aws-credentials)
+                   :all     (constantly true)})
