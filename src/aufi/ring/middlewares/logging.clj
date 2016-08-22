@@ -1,5 +1,6 @@
 (ns aufi.ring.middlewares.logging
   (:require [ronda.routing :as routing]
+            [manifold.deferred :as d]
             [clojure.tools.logging :as log])
   (:import [org.slf4j MDC]))
 
@@ -47,11 +48,14 @@
 
 (defn- response-or-500
   [handler request]
-  (try
-    (handler request)
-    (catch Throwable t
-      (log/error t (pr-str request))
-      {:status 500, :body "nix aufi."})))
+  (-> request
+      (d/chain handler)
+      (d/catch
+        (fn [^Throwable t]
+          (->> (dissoc request :ronda/routing :ronda/descriptor)
+               (pr-str)
+               (log/errorf t "an exception occured when processing:%n%s"))
+          {:status 500, :body "nix aufi."}))))
 
 (defn- format-for-logging
   [{:keys [request-method uri query-string] :as request}
@@ -72,11 +76,13 @@
 (defn wrap-logging
   [handler]
   (fn [request]
-    (let [start (nano-time)
-          response (response-or-500 handler request)
-          delta (/ (quot (- (nano-time) start) 1e6) 1e3)
-          endpoint-id (or (routing/endpoint request) :unknown)]
-      (with-mdc*
-        (context->mdc-map request response delta)
-        #(log/info (format-for-logging request response delta)))
-      response)))
+    (let [start (nano-time)]
+      (-> (response-or-500 handler request)
+          (d/chain
+            (fn [response]
+              (let [delta (/ (quot (- (nano-time) start) 1e6) 1e3)
+                    endpoint-id (or (routing/endpoint request) :unknown)]
+                (with-mdc*
+                  (context->mdc-map request response delta)
+                  #(log/info (format-for-logging request response delta)))
+                response)))))))
