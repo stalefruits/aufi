@@ -46,5 +46,10 @@
       (wrap-plain-map)
       (wrap-not-found)
       (wrap-cors)
-      (wrap-head)
+      (wrap-head)))
+
+(defn wrap-async
+  "Wrap handler with all async-capable middlewares."
+  [handler]
+  (-> handler
       (wrap-logging)))

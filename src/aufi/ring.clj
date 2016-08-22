@@ -53,6 +53,7 @@
   :handler
   (-> ring-handler
       (pools/wrap pools)
+      (middlewares/wrap-async)
       (routing/wrap-routing routes))
 
   clojure.lang.IFn
