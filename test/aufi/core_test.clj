@@ -187,6 +187,11 @@
              (:status)
              (swap! statuses conj))))))
 
+(defn- wait-for-congestion!
+  [lock]
+  (is (test/wait-for-congestion! lock 2)
+      "failed to use up all server threads within 2s."))
+
 (defn- wait!
   [lock bombardment]
   (test/release! lock)
@@ -202,12 +207,12 @@
         expected-failures (- bombard-count max-requests)
         statuses (atom [])
         bombardment (bombard! bombard-count statuses saturate-fn)]
-    (Thread/sleep 100)
-    (is (= unsaturate-success-status (:status (unsaturate-fn))))
-    (is (wait! lock bombardment))
-    (let [fq (frequencies @statuses)]
-      (is (= max-requests (get fq saturate-success-status)))
-      (is (= expected-failures (get fq 503))))))
+    (when (wait-for-congestion! lock)
+      (is (= unsaturate-success-status (:status (unsaturate-fn))))
+      (is (wait! lock bombardment))
+      (let [fq (frequencies @statuses)]
+        (is (= max-requests (get fq saturate-success-status)))
+        (is (= expected-failures (get fq 503)))))))
 
 (deftest t-saturation
   (testing "POST saturation does not influence GET requests."
@@ -239,15 +244,15 @@
         (is (= 200 (check! 0.5)))
         (testing "GET saturation."
           (let [bombardment (bombard!  max-requests (atom []) test-get!)]
-            (Thread/sleep 100)
-            (is (= 503 (check! 0.5)))
-            (is (= 200 (check! 0.0)))
-            (wait! retrieve-lock bombardment)
-            (is (= 200 (check! 0.5)))))
+            (when (wait-for-congestion! retrieve-lock)
+              (is (= 503 (check! 0.5)))
+              (is (= 200 (check! 0.0)))
+              (wait! retrieve-lock bombardment)
+              (is (= 200 (check! 0.5))))))
         (testing "POST saturation."
           (let [bombardment (bombard!  max-requests (atom []) test-post!)]
-            (Thread/sleep 100)
-            (is (= 503 (check! 0.5)))
-            (is (= 200 (check! 0.0)))
-            (wait! put-lock bombardment)
-            (is (= 200 (check! 0.5)))))))))
+            (when (wait-for-congestion! put-lock)
+              (is (= 503 (check! 0.5)))
+              (is (= 200 (check! 0.0)))
+              (wait! put-lock bombardment)
+              (is (= 200 (check! 0.5))))))))))

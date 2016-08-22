@@ -4,6 +4,7 @@
             [clojure.java.io :as io])
   (:import [java.awt.image BufferedImage]
            [java.io ByteArrayOutputStream]
+           [java.util.concurrent CountDownLatch TimeUnit]
            [java.util.concurrent.locks Lock ReentrantLock]))
 
 ;; ## Image Helpers
@@ -70,21 +71,28 @@
 
 (defn lock
   []
-  {:lock (ReentrantLock.)})
+  {:lock (ReentrantLock.)
+   :countdown-latch (CountDownLatch. 0)})
 
 (defn lock!
   [threads]
   {:lock
    (doto (ReentrantLock.)
-     (.lock))})
+     (.lock))
+   :countdown-latch
+   (CountDownLatch. threads)})
 
 (defn acquire!
-  [{:keys [lock]}]
+  [{:keys [countdown-latch lock]}]
+  (.countDown ^CountDownLatch countdown-latch)
   (.lock ^Lock lock))
 
 (defn release!
   [{:keys [lock]}]
   (.unlock ^Lock lock))
+(defn wait-for-congestion!
+  [{:keys [countdown-latch]} seconds]
+  (.await countdown-latch seconds TimeUnit/SECONDS))
 
 ;; ## Locking Image Store
 
