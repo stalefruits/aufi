@@ -3,7 +3,7 @@
             [aufi.core :refer [make-aufi]]
             [aufi.system.protocols :as protocols]
             [aufi.test :as test]
-            [aleph.http :as http]
+            [clj-http.client :as http]
             [peripheral.core :refer [with-start]]))
 
 ;; ## Data
@@ -24,10 +24,6 @@
    :host  host
    :pools pool-opts})
 
-(defonce connection-pool
-  (http/connection-pool
-    {:connections-per-host max-connections}))
-
 (defn- url
   [path & [query-string]]
   (str "http://" host ":" port
@@ -38,28 +34,28 @@
 (defn- post!
   [path body]
   (try
-    @(http/post (url path) {:body body, :pool connection-pool})
+    (http/post (url path) {:body body, :as :stream})
     (catch clojure.lang.ExceptionInfo ex
       (ex-data ex))))
 
 (defn- get!
   [path & [query-string]]
   (try
-    @(http/get (url path query-string)
-               {:follow-redirects false
-                :pool connection-pool})
+    (http/get (url path query-string)
+              {:follow-redirects false
+               :as               :stream
+               :throw-exceptions false})
     (catch clojure.lang.ExceptionInfo ex
       (ex-data ex))))
 
 (defn- head!
   [path & [etag]]
   (try
-    @(http/request
+    (http/request
        {:method :head
         :url (url path nil)
         :headers (if etag {"if-none-match" etag} {})
-        :follow-redirects false
-        :pool connection-pool})
+        :follow-redirects false})
     (catch clojure.lang.ExceptionInfo ex
       (ex-data ex))))
 
@@ -141,12 +137,12 @@
           (testing "- HEAD."
             (let [{:keys [status headers body]} (head! location)]
               (is (= 200 status))
-              (is (= "" (slurp body)))
+              (is (= "" (str (some-> body slurp))))
               (is (= expected-content-length (headers "content-length")))))
           (testing "- HEAD (w/ ETag)."
             (let [{:keys [status headers body]} (head! location etag)]
               (is (= 304 status))
-              (is (= "" (slurp body)))
+              (is (= "" (str (some-> body slurp))))
               (is (= "0" (headers "content-length"))))))))
     (testing "GET unknown ID."
       (let [{:keys [status]} (get! "/v1/images/unknown")]

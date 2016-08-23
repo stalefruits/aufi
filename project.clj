@@ -41,7 +41,8 @@
                       ^:replace
                       ["-Djava.awt.headless=true"
                        "-Dlogback.configurationFile=resources/logback-silent.xml"]}
-             :dev {:dependencies [[criterium "0.4.4"]]
+             :dev {:dependencies [[criterium "0.4.4"]
+                                  [clj-http "3.0.1"]]
                    :jvm-opts
                    ^:replace
                    ["-Djava.awt.headless=true"
