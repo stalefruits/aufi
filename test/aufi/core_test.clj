@@ -31,6 +31,10 @@
        (if query-string
          (str "?" query-string))))
 
+(defn- close!
+  [response]
+  (update response :body #(some-> % (.close))))
+
 (defn- post!
   [path body]
   (try
@@ -59,14 +63,17 @@
     (catch clojure.lang.ExceptionInfo ex
       (ex-data ex))))
 
+(def get-info!
+  (comp close! get!))
+
 (defn- test-get!
   []
-  (get! "/v1/images/unknown"))
+  (close! (get! "/v1/images/unknown")))
 
 (let [image (test/generate-image-bytes)]
   (defn- test-post!
     []
-    (post! "/v1/images" image)))
+    (close! (post! "/v1/images" image))))
 
 ;; ## Fixtures
 
@@ -145,31 +152,31 @@
               (is (= "" (str (some-> body slurp))))
               (is (= "0" (headers "content-length"))))))))
     (testing "GET unknown ID."
-      (let [{:keys [status]} (get! "/v1/images/unknown")]
+      (let [{:keys [status]} (get-info! "/v1/images/unknown")]
         (is (= 404 status)))
       (testing "with a default ID"
-        (let [{:keys [status headers]} (get! "/v1/images/unknown"
-                                             "default=bar")]
+        (let [{:keys [status headers]} (get-info! "/v1/images/unknown"
+                                                  "default=bar")]
           (is (= 302 status))
           (is (re-find #".*/bar$" (headers "location")))))
       (testing "with a default ID + filename"
-        (let [{:keys [status headers]} (get! "/v1/images/unknown/test.jpg"
-                                             "default=bar")]
+        (let [{:keys [status headers]} (get-info! "/v1/images/unknown/test.jpg"
+                                                  "default=bar")]
           (is (= 302 status))
           (is (re-find #".*/bar/test\.jpg$" (headers "location"))))))))
 
 (deftest t-health-check
   (testing "successful health check."
     (with-start [aufi (test-system)]
-      (let [{:keys [status body]} (get! "/_status")]
+      (let [{:keys [status]} (get-info! "/_status")]
         (is (= 200 status)))))
   (testing "health check timeout."
     (with-start [aufi (test-system #(Thread/sleep 200))]
-      (let [{:keys [status body]} (get! "/_status?timeout=100")]
+      (let [{:keys [status]} (get-info! "/_status?timeout=100")]
         (is (= 504 status)))))
   (testing "failing health check."
     (with-start [aufi (test-system #(throw (Exception.)))]
-      (let [{:keys [status body]} (get! "/_status")]
+      (let [{:keys [status]} (get-info! "/_status")]
         (is (= 503 status))))))
 
 ;; ## Saturation Tests
@@ -231,7 +238,7 @@
 (deftest t-saturation-health
   (let [check! #(->> (str "download-capacity=" %
                           "&upload-capacity=" %)
-                     (get! "/_status")
+                     (get-info! "/_status")
                      :status)
         put-lock (test/lock! threads)
         retrieve-lock (test/lock! threads)]
