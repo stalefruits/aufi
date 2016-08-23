@@ -33,8 +33,7 @@
                  [com.fasterxml.jackson.core/jackson-databind "2.8.1"]]
   :pedantic? :abort
   :jvm-opts ["-Djava.awt.headless=true"]
-  :profiles {:uberjar {:dependencies [[net.logstash.logback/logstash-logback-encoder "4.7"]]
-                       :uberjar-name "aufi-standalone.jar"
+  :profiles {:uberjar {:uberjar-name "aufi-standalone.jar"
                        :aot :all
                        :main aufi.core}
              :silent {:jvm-opts

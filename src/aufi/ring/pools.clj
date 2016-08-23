@@ -59,12 +59,12 @@
       (.execute ^ExecutorService executor thunk)
       (swap! queue-counter inc)
       response
-      (catch RejectedExecutionException re
-        (log/warnf re
-                   "[pool] [%s] executor saturated."
-                   (-> request
-                       (routing/endpoint)
-                       (name)))))))
+      (catch RejectedExecutionException _
+        (log/warnf
+          "[pool] [%s] executor saturated."
+          (-> request
+              (routing/endpoint)
+              (name)))))))
 
 (defn- make-unavailable-response
   [{:keys [retry-after] :or {retry-after 5}}]
